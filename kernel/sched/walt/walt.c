@@ -117,24 +117,6 @@ unsigned int __read_mostly sched_load_granule;
 
 unsigned int enable_pipeline_boost;
 
-#ifdef CONFIG_HMBIRD_SCHED
-struct walt_ops_t {
-	bool (*scx_enable)(void);
-	bool (*check_non_task)(void);
-};
-struct walt_ops_t *walt_ops __read_mostly;
-
-void register_walt_ops(struct walt_ops_t *ops)
-{
-	if (!ops)
-		return;
-
-	if (cmpxchg(&walt_ops, NULL, ops))
-		pr_warn("walt_ops has already been registered!\n");
-}
-EXPORT_SYMBOL_GPL(register_walt_ops);
-#endif
-
 /* lock diagnostic */
 struct rq_lock_diag walt_rq_lock_diag_data[WALT_NR_CPUS];
 
@@ -2031,11 +2013,6 @@ static inline u16 predict_and_update_buckets(
 static int
 account_busy_for_task_demand(struct rq *rq, struct task_struct *p, int event)
 {
-#ifdef CONFIG_HMBIRD_SCHED
-	if (walt_ops && walt_ops->scx_enable && walt_ops->scx_enable()
-			&& (event == PICK_NEXT_TASK || event == TASK_MIGRATE))
-		return 0;
-#endif
 	/*
 	 * No need to bother updating task demand for the idle task.
 	 */
@@ -4672,13 +4649,7 @@ static void walt_irq_work(struct irq_work *irq_work)
 #else
 		qcom_rearrange_pipeline_preferred_cpus(walt_scale_demand_divisor);
 #endif
-#ifdef CONFIG_HMBIRD_SCHED
-		if (!(walt_ops && walt_ops->scx_enable && walt_ops->scx_enable())) {
-#endif
 			core_ctl_check(wrq->window_start, wakeup_ctr_sum);
-#ifdef CONFIG_HMBIRD_SCHED
-		}
-#endif
 	}
 }
 
@@ -5089,16 +5060,7 @@ static void android_rvh_set_task_cpu(void *unused, struct task_struct *p, unsign
 		return;
 
 	migrate_busy_time_subtraction(p, (int) new_cpu);
-#ifdef CONFIG_HMBIRD_SCHED
-	/*
-	 * If callback does not registered,
-	 * or check_non_task return true, don't skip.
-	 */
-	if (!cpumask_test_cpu(new_cpu, p->cpus_ptr) && !(walt_ops
-		&& walt_ops->check_non_task && !walt_ops->check_non_task()))
-#else
 	if (!cpumask_test_cpu(new_cpu, p->cpus_ptr))
-#endif
 		WALT_BUG(WALT_BUG_WALT, p, "selecting unaffined cpu=%d comm=%s(%d) affinity=0x%x",
 			 new_cpu, p->comm, p->pid, (*(cpumask_bits(p->cpus_ptr))));
 

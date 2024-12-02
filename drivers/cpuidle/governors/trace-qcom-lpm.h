@@ -79,10 +79,6 @@ TRACE_EVENT(gov_pred_hist,
 	TP_printk("idx:%d residency=%d, tmr=%d", __entry->idx, __entry->residency, __entry->tmr)
 );
 
-DECLARE_HOOK(android_vh_scx_sched_lpm_disallowed_time,
-       TP_PROTO(int cpu, int *timeout_allowed),
-       TP_ARGS(cpu, timeout_allowed));
-
 #endif /* _TRACE_QCOM_LPM_H */
 
 #undef TRACE_INCLUDE_PATH
